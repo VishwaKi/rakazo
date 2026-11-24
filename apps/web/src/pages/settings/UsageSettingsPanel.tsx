@@ -10,6 +10,7 @@ import {
   ToggleGroupItem,
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@rakazo/ui-web";
 import {
@@ -173,6 +174,7 @@ export function UsageSettingsPanel({ panelRef }: { panelRef?: RefObject<HTMLDivE
   const [selectedModel, setSelectedModel] = useState<{ key: string; label: string } | null>(null);
   const botId = selectedBot?.id ?? "all";
   const modelKey = selectedModel?.key ?? "all";
+  const [activeBar, setActiveBar] = useState<string | null>(null);
 
   const input = {
     range,
@@ -496,80 +498,102 @@ export function UsageSettingsPanel({ panelRef }: { panelRef?: RefObject<HTMLDivE
                   ))}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div
-                    className="relative grid h-56 w-full items-end"
-                    style={{ gridTemplateColumns: `repeat(${chartPoints.length}, minmax(0, 1fr))` }}
-                  >
-                    {axis.ticks.map((tick) => (
-                      <span
-                        key={tick}
-                        className="pointer-events-none absolute inset-x-0 border-t border-border/60"
-                        style={{ bottom: `${(tick / axis.top) * 100}%` }}
-                      />
-                    ))}
-                    {chartPoints.map((point) => {
-                      const unknown = point.totalTokens == null;
-                      const value = point.totalTokens ?? 0;
-                      const height = unknown ? 100 : (value / axis.top) * 100;
-                      const day = formatUsageDate(point.date, i18n.locale, monthly);
-                      const unused = value === 0 && !unknown;
-                      const barClass = `w-[18px] rounded-t-[3px] ${
-                        unknown ? "bg-muted" : unused ? "bg-muted-foreground/40" : "bg-emerald-500"
-                      }`;
-                      if (unused || unknown) {
+                  <TooltipProvider delay={0} closeDelay={0}>
+                    <div
+                      className="relative grid h-56 w-full items-end"
+                      style={{
+                        gridTemplateColumns: `repeat(${chartPoints.length}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {axis.ticks.map((tick) => (
+                        <span
+                          key={tick}
+                          className="pointer-events-none absolute inset-x-0 border-t border-border/60"
+                          style={{ bottom: `${(tick / axis.top) * 100}%` }}
+                        />
+                      ))}
+                      {chartPoints.map((point) => {
+                        const unknown = point.totalTokens == null;
+                        const value = point.totalTokens ?? 0;
+                        const height = unknown ? 100 : (value / axis.top) * 100;
+                        const day = formatUsageDate(point.date, i18n.locale, monthly);
+                        const unused = value === 0 && !unknown;
+                        const barClass = `w-[18px] rounded-t-[3px] ${
+                          unknown
+                            ? "bg-muted"
+                            : unused
+                              ? "bg-muted-foreground/40"
+                              : "bg-emerald-500"
+                        }`;
+                        if (unused || unknown) {
+                          return (
+                            <div
+                              key={point.date}
+                              className="flex h-full min-w-0 items-end justify-center"
+                            >
+                              <span
+                                className={barClass}
+                                style={{ height: unused ? "2px" : `${height}%` }}
+                              />
+                            </div>
+                          );
+                        }
+                        const modelLine =
+                          modelKey !== "all"
+                            ? selectedModel?.label
+                            : models.length === 1
+                              ? models[0]?.model
+                              : null;
                         return (
                           <div
                             key={point.date}
-                            className="flex h-full min-w-0 items-end justify-center"
+                            className="relative flex h-full min-w-0 items-end justify-center"
                           >
-                            <span
-                              className={barClass}
-                              style={{ height: unused ? "2px" : `${height}%` }}
-                            />
+                            {activeBar === point.date ? (
+                              <span
+                                aria-hidden="true"
+                                className="pointer-events-none absolute top-0 left-1/2 z-0 w-px -translate-x-1/2 border-l border-dotted border-foreground/45"
+                                style={{ bottom: `${height}%` }}
+                              />
+                            ) : null}
+                            <Tooltip
+                              onOpenChange={(open) =>
+                                setActiveBar((current) =>
+                                  open ? point.date : current === point.date ? null : current,
+                                )
+                              }
+                            >
+                              <TooltipTrigger
+                                aria-label={t`${day}: ${number(value)} tokens`}
+                                className="relative z-10 flex h-full w-full items-end justify-center bg-transparent focus-visible:outline-2 focus-visible:outline-ring"
+                              >
+                                <span className={barClass} style={{ height: `${height}%` }} />
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="left"
+                                sideOffset={8}
+                                align="center"
+                                arrow={false}
+                                className="block w-auto flex-col items-stretch gap-1 bg-popover px-3 py-2 text-left text-popover-foreground shadow-md ring-1 ring-foreground/10"
+                              >
+                                <div className="text-body-sm font-medium text-foreground">
+                                  {day}
+                                </div>
+                                <div className="mt-1 flex items-center gap-2 text-caption">
+                                  <span className="size-2 rounded-full bg-emerald-500" />
+                                  <span>
+                                    {modelLine ? `${modelLine}: ` : null}
+                                    {number(value)}
+                                  </span>
+                                </div>
+                                <div className="mt-1 text-caption text-foreground">{t`Total: ${number(value)}`}</div>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         );
-                      }
-                      const modelLine =
-                        modelKey !== "all"
-                          ? selectedModel?.label
-                          : models.length === 1
-                            ? models[0]?.model
-                            : null;
-                      return (
-                        <div
-                          key={point.date}
-                          className="flex h-full min-w-0 items-end justify-center"
-                        >
-                          <Tooltip>
-                            <TooltipTrigger
-                              aria-label={t`${day}: ${number(value)} tokens`}
-                              className="relative z-10 flex w-[18px] items-end focus-visible:outline-2 focus-visible:outline-ring"
-                              style={{ height: `${height}%` }}
-                            >
-                              <span className={`${barClass} h-full`} />
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="left"
-                              sideOffset={8}
-                              align="center"
-                              arrow={false}
-                              className="block w-auto flex-col items-stretch gap-1 bg-popover px-3 py-2 text-left text-popover-foreground shadow-md ring-1 ring-foreground/10"
-                            >
-                              <div className="text-body-sm font-medium text-foreground">{day}</div>
-                              <div className="mt-1 flex items-center gap-2 text-caption">
-                                <span className="size-2 rounded-full bg-emerald-500" />
-                                <span>
-                                  {modelLine ? `${modelLine}: ` : null}
-                                  {number(value)}
-                                </span>
-                              </div>
-                              <div className="mt-1 text-caption text-foreground">{t`Total: ${number(value)}`}</div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      );
-                    })}
-                  </div>
+                      })}
+                    </div>
+                  </TooltipProvider>
                   <div className="relative mt-2 h-4">
                     {axisLabelIndexes(chartPoints.length).map((index) => {
                       const point = chartPoints[index];

@@ -259,6 +259,7 @@ function ChartCanvas({
   }>({ swatches: [] });
   useEffect(() => {
     let cancelled = false;
+    let theme: MutationObserver | undefined;
     // Plot loads lazily so threads without charts never pay for the library.
     void (async () => {
       try {
@@ -282,12 +283,27 @@ function ChartCanvas({
         setMeta({ title: parts.title, swatches: parts.swatches });
         setError(null);
         ref.current.replaceChildren(parts.plotted);
+        // Plot paints the tip on a white card and the words in the surrounding text color.
+        // In dark mode those words are white, so the card follows the popover instead.
+        const svg = ref.current.querySelector("svg");
+        const paintTip = () => {
+          if (!svg) return;
+          const dark = document.documentElement.dataset.theme !== "light";
+          svg.style.setProperty("--plot-background", dark ? "var(--popover)" : "white");
+        };
+        paintTip();
+        theme = new MutationObserver(paintTip);
+        theme.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
       } catch (err) {
         if (!cancelled) setError(errorText(err, t`Could not render chart`));
       }
     })();
     return () => {
       cancelled = true;
+      theme?.disconnect();
     };
   }, [spec, data, width, height, t]);
   if (error)

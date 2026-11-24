@@ -50,6 +50,7 @@ vi.mock("@rakazo/ui-web", async (importOriginal) => ({
   FieldLabel: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   OptionSelect: (await importOriginal<typeof UiWeb>()).OptionSelect,
   Tooltip: (await importOriginal<typeof UiWeb>()).Tooltip,
+  TooltipProvider: (await importOriginal<typeof UiWeb>()).TooltipProvider,
   TooltipTrigger: (await importOriginal<typeof UiWeb>()).TooltipTrigger,
   TooltipContent: (await importOriginal<typeof UiWeb>()).TooltipContent,
   Popover: (await importOriginal<typeof UiWeb>()).Popover,
